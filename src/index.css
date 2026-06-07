@@ -208,7 +208,10 @@ p {
 
 @media (max-width: 1024px) {
   .nav-links {
-    display: none; /* In a real app we'd add a dropdown, for now hide on small screens */
+    display: none; 
+  }
+  .nav-contact-btn {
+    display: none; /* Hide primary contact button on mobile, keep it in the menu */
   }
   
   .mobile-menu-btn {
@@ -309,4 +312,48 @@ p {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255,255,255,0.2);
+}
+
+/* Mobile Menu Styling */
+.mobile-menu-dropdown {
+  position: absolute;
+  top: var(--nav-height);
+  left: 0;
+  right: 0;
+  background-color: var(--bg-color);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  padding: 0.5rem 1rem 1rem 1rem;
+  z-index: 90;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+}
+
+.mobile-nav-item {
+  padding: 1rem;
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  text-decoration: none;
+  border-bottom: 1px solid var(--glass-border);
+  cursor: pointer;
+  border-radius: 0.5rem;
+}
+
+.mobile-nav-item:last-child {
+  border-bottom: none;
+}
+
+.mobile-nav-item.active {
+  color: var(--primary);
+  background-color: rgba(139, 92, 246, 0.1);
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.2s ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
 }

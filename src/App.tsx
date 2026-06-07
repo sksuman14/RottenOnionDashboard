@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { useChartZoomPan } from './hooks/useChartZoomPan';
 import './index.css';
@@ -49,6 +49,7 @@ const CustomTooltip = ({ active, payload, label, unit = '' }: any) => {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('overview');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   const [devices, setDevices] = useState<CloudSenseDevice[]>([]);
   const [selectedDevice, setSelectedDevice] = useState<CloudSenseDevice | null>(null);
@@ -385,14 +386,44 @@ export default function App() {
           >
             Hardware Specs
           </div>
-        </div>
-        
-        <div className="nav-actions">
-          <a href="mailto:Vikash.hardwareengineer@ihub-awadh.in" className="btn btn-primary">
+          <a href="mailto:Vikash.hardwareengineer@ihub-awadh.in" className="nav-item">
             Contact Support
           </a>
         </div>
+        
+        <div className="nav-actions">
+          <button className="mobile-menu-btn" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+            {mobileMenuOpen ? '✕' : '☰'}
+          </button>
+        </div>
       </nav>
+
+      {/* Mobile Menu Dropdown */}
+      {mobileMenuOpen && (
+        <div className="mobile-menu-dropdown animate-fade-in">
+          <div 
+            className={`mobile-nav-item ${activeTab === 'overview' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('overview'); setMobileMenuOpen(false); }}
+          >
+            Overview
+          </div>
+          <div 
+            className={`mobile-nav-item ${activeTab === 'live' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('live'); setMobileMenuOpen(false); }}
+          >
+            Live Network
+          </div>
+          <div 
+            className={`mobile-nav-item ${activeTab === 'specs' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('specs'); setMobileMenuOpen(false); }}
+          >
+            Hardware Specs
+          </div>
+          <a href="mailto:Vikash.hardwareengineer@ihub-awadh.in" className="mobile-nav-item" style={{ color: 'var(--primary)', marginTop: '0.5rem', fontWeight: 600 }}>
+            Contact Support
+          </a>
+        </div>
+      )}
 
       {/* Main Content Area */}
       <main className="main-content">
