@@ -13,13 +13,15 @@ interface CloudSenseDevice {
   WindDirection: number;
   CurrentTemperature: number;
   CurrentHumidity: number;
-  BatteryVoltage: number;
-  SignalStrength: number;
+  BatteryVoltage?: number;
+  SignalStrength?: number;
   H2S?: number;
   CO2?: number;
   NH3?: number;
   SO2?: number;
   StateCode?: number; // 0=healthy, 1=warning, 2=critical
+  status?: string;
+  led_status?: string;
 }
 
 // Custom Tooltip
@@ -110,13 +112,20 @@ export default function App() {
     { label: "Visual Indication", value: "RGB status LED + Buzzer" }
   ];
 
-  const getDeviceStatusColor = (stateCode?: number) => {
+  const getDeviceStatusColor = (stateCode?: number, ledStatus?: string) => {
+    if (ledStatus) {
+      const lower = ledStatus.toLowerCase();
+      if (lower === 'red') return 'var(--danger)';
+      if (lower === 'yellow') return 'var(--warning)';
+      if (lower === 'green') return 'var(--success)';
+    }
     if (stateCode === 2) return 'var(--danger)'; // Critical
     if (stateCode === 1) return 'var(--warning)'; // Warning
     return 'var(--success)'; // Healthy
   };
 
-  const getDeviceStatusLabel = (stateCode?: number) => {
+  const getDeviceStatusLabel = (stateCode?: number, statusText?: string) => {
+    if (statusText) return statusText;
     if (stateCode === 2) return 'Critical';
     if (stateCode === 1) return 'Warning';
     return 'Healthy';
@@ -124,32 +133,66 @@ export default function App() {
 
   // Generate Mock Data for OMD
   useEffect(() => {
+    let isMounted = true;
     if (activeTab === 'live') {
       setLoading(true);
       
-      // Generate static list of devices 1 to 20
-      const staticDevices: CloudSenseDevice[] = Array.from({ length: 20 }, (_, i) => ({
-        DeviceId: `OMD-${String(i + 1).padStart(3, '0')}`,
-        Topic: `onion-monitor/OMD-${String(i + 1).padStart(3, '0')}/telemetry`,
-        TimeStamp_IST: '2024-10-30 23:00:00',
-        City: 'IIT Ropar',
-        State: 'Punjab',
-        WindSpeed: 0,
-        WindDirection: 0,
-        CurrentTemperature: 15,
-        CurrentHumidity: 50,
-        BatteryVoltage: 12.0,
-        SignalStrength: -70,
-        H2S: 0,
-        CO2: 400,
-        NH3: 0,
-        SO2: 0,
-        StateCode: 0
-      }));
-
-      setDevices(staticDevices);
-      setLoading(false);
+      const fetchAllDevices = async () => {
+        try {
+          const end = '2024-10-30';
+          const start = '2024-10-30';
+          const promises = Array.from({ length: 20 }, (_, i) => {
+            const deviceId = i + 1;
+            const url = `/api/default/Rotten_oninon_data_fetch?deviceId=${deviceId}&startDate=${start}&endDate=${end}`;
+            return fetch(url).then(r => r.json()).catch(() => null);
+          });
+          
+          const results = await Promise.all(promises);
+          
+          if (!isMounted) return;
+          
+          const liveDevices: CloudSenseDevice[] = results.map((res, i) => {
+            const baseDevice: any = {
+              DeviceId: `OMD-${String(i + 1).padStart(3, '0')}`,
+              Topic: `onion-monitor/OMD-${String(i + 1).padStart(3, '0')}/telemetry`,
+              City: 'IIT Ropar',
+              State: 'Punjab',
+              StateCode: 0,
+              TimeStamp_IST: 'No Data'
+            };
+            
+            if (res && res.data && res.data.length > 0) {
+              const latest = res.data[res.data.length - 1];
+              return {
+                ...baseDevice,
+                TimeStamp_IST: latest.timestamp,
+                status: latest.status,
+                led_status: latest.led_status,
+                H2S: latest.h2s,
+                CO2: latest.co2,
+                NH3: latest.nh3,
+                SO2: latest.so2,
+                CurrentTemperature: latest.temperature,
+                CurrentHumidity: latest.humidity
+              };
+            }
+            return baseDevice;
+          });
+          
+          setDevices(liveDevices);
+        } catch (e) {
+          console.error("Failed to fetch devices", e);
+        } finally {
+          if (isMounted) setLoading(false);
+        }
+      };
+      
+      fetchAllDevices();
     }
+    
+    return () => {
+      isMounted = false;
+    };
   }, [activeTab]);
 
   useEffect(() => {
@@ -220,6 +263,8 @@ export default function App() {
               const dateObj = d.epoch ? new Date(d.epoch * 1000) : new Date(d.timestamp.replace(' ', 'T'));
               return {
                 ...d,
+                status: d.status,
+                led_status: d.led_status,
                 H2S: d.h2s,
                 CO2: d.co2,
                 NH3: d.nh3,
@@ -470,10 +515,6 @@ export default function App() {
                           <div style={{ fontWeight: 600, fontSize: '1.25rem', color: '#fff' }}>
                             {device.DeviceId}
                           </div>
-                          <div style={{ fontSize: '0.85rem', color: getDeviceStatusColor(device.StateCode), display: 'flex', alignItems: 'center', gap: '0.4rem', backgroundColor: 'rgba(0,0,0,0.3)', padding: '0.25rem 0.75rem', borderRadius: '999px' }}>
-                            <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', backgroundColor: getDeviceStatusColor(device.StateCode), boxShadow: `0 0 8px ${getDeviceStatusColor(device.StateCode)}` }}></span>
-                            {getDeviceStatusLabel(device.StateCode)}
-                          </div>
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                           <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -524,9 +565,9 @@ export default function App() {
                         <div>
                           <h2 style={{ margin: 0, fontSize: '2rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
                             {selectedDevice.DeviceId} 
-                            <span className="status-badge" style={{ backgroundColor: getDeviceStatusColor(selectedDevice.StateCode) + '22', color: getDeviceStatusColor(selectedDevice.StateCode), border: `1px solid ${getDeviceStatusColor(selectedDevice.StateCode)}44` }}>
-                                <span className="status-dot" style={{ backgroundColor: getDeviceStatusColor(selectedDevice.StateCode) }}></span>
-                                {getDeviceStatusLabel(selectedDevice.StateCode)}
+                            <span className="status-badge" style={{ backgroundColor: getDeviceStatusColor(selectedDevice.StateCode, latestMetrics?.led_status) + '22', color: getDeviceStatusColor(selectedDevice.StateCode, latestMetrics?.led_status), border: `1px solid ${getDeviceStatusColor(selectedDevice.StateCode, latestMetrics?.led_status)}44` }}>
+                                <span className="status-dot" style={{ backgroundColor: getDeviceStatusColor(selectedDevice.StateCode, latestMetrics?.led_status) }}></span>
+                                {getDeviceStatusLabel(selectedDevice.StateCode, latestMetrics?.status)}
                             </span>
                           </h2>
                           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: '0.5rem 0 0 0' }}>
