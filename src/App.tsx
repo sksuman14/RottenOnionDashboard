@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useChartZoomPan } from './hooks/useChartZoomPan';
 import './index.css';
 
@@ -21,14 +21,6 @@ interface CloudSenseDevice {
   SO2?: number;
   StateCode?: number; // 0=healthy, 1=warning, 2=critical
 }
-
-const formatDateToDDMMYYYY = (dateStr: string) => {
-  if (!dateStr) return '';
-  const d = new Date(dateStr);
-  const day = d.getDate().toString().padStart(2, '0');
-  const month = (d.getMonth() + 1).toString().padStart(2, '0');
-  return `${day}-${month}-${d.getFullYear()}`;
-};
 
 // Custom Tooltip
 const CustomTooltip = ({ active, payload, label, unit = '' }: any) => {
@@ -131,40 +123,6 @@ export default function App() {
   };
 
   // Generate Mock Data for OMD
-  const generateMockHistory = (deviceId: string, startStr: string, endStr: string) => {
-    const data = [];
-    const now = new Date();
-    const startDateObj = new Date(startStr.split('-').reverse().join('-'));
-    const endDateObj = new Date(endStr.split('-').reverse().join('-'));
-    endDateObj.setHours(23, 59, 59);
-
-    let current = new Date(startDateObj);
-    const isWarning = deviceId === 'OMD-002';
-
-    while (current <= endDateObj && current <= now) {
-      let baseH2S = isWarning ? 0.12 : 0.05;
-      let baseCO2 = isWarning ? 1200 : 750;
-      let baseNH3 = isWarning ? 0.25 : 0.10;
-      let baseSO2 = isWarning ? 0.06 : 0.02;
-      let baseTemp = isWarning ? 18 : 12;
-      let baseHum = isWarning ? 65 : 62;
-
-      data.push({
-        TimeStamp_IST: current.toISOString().replace('T', ' ').substring(0, 19),
-        timeLabel: current.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        dateLabel: current.toLocaleDateString(),
-        H2S: +(baseH2S + (Math.random() * 0.04 - 0.02)).toFixed(2),
-        CO2: +(baseCO2 + (Math.random() * 100 - 50)).toFixed(0),
-        NH3: +(baseNH3 + (Math.random() * 0.05 - 0.025)).toFixed(2),
-        SO2: +(baseSO2 + (Math.random() * 0.02 - 0.01)).toFixed(2),
-        CurrentTemperature: +(baseTemp + (Math.random() * 2 - 1)).toFixed(1),
-        CurrentHumidity: +(baseHum + (Math.random() * 4 - 2)).toFixed(1)
-      });
-      current.setHours(current.getHours() + 1);
-    }
-    return data;
-  };
-
   useEffect(() => {
     if (activeTab === 'live') {
       setLoading(true);
@@ -294,7 +252,7 @@ export default function App() {
 
   const latestMetrics = historyData.length > 0 ? historyData[historyData.length - 1] : selectedDevice;
 
-  const renderChart = (title: string, dataKey: string, color: string, unit: string, zoomPanHook: any, thresholds?: { warning?: number, critical?: number }) => {
+  const renderChart = (title: string, dataKey: string, color: string, unit: string, zoomPanHook: any) => {
     const { displayedData, handleMouseDown, handleMouseMove, handleMouseUp, handleWheel } = zoomPanHook;
     
     return (
@@ -668,12 +626,12 @@ export default function App() {
 
                       {/* 6 Independent Zoomable Charts */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                          {renderChart("Hydrogen Sulphide", "H2S", "#fbbf24", "ppm", zoomPanH2S, { warning: 0.10, critical: 0.20 })}
-                          {renderChart("Carbon Dioxide", "CO2", "#d4d4d8", "ppm", zoomPanCO2, { warning: 900, critical: 3500 })}
-                          {renderChart("Ammonia", "NH3", "#10b981", "ppm", zoomPanNH3, { warning: 0.20, critical: 0.50 })}
-                          {renderChart("Sulphur Dioxide", "SO2", "#f43f5e", "ppm", zoomPanSO2, { warning: 0.05, critical: 0.10 })}
-                          {renderChart("Temperature", "CurrentTemperature", "#f87171", "°C", zoomPanTemp, { warning: 15, critical: 20 })}
-                          {renderChart("Humidity", "CurrentHumidity", "#60a5fa", "%", zoomPanHum, { warning: 80, critical: 85 })}
+                          {renderChart("Hydrogen Sulphide", "H2S", "#fbbf24", "ppm", zoomPanH2S)}
+                          {renderChart("Carbon Dioxide", "CO2", "#d4d4d8", "ppm", zoomPanCO2)}
+                          {renderChart("Ammonia", "NH3", "#10b981", "ppm", zoomPanNH3)}
+                          {renderChart("Sulphur Dioxide", "SO2", "#f43f5e", "ppm", zoomPanSO2)}
+                          {renderChart("Temperature", "CurrentTemperature", "#f87171", "°C", zoomPanTemp)}
+                          {renderChart("Humidity", "CurrentHumidity", "#60a5fa", "%", zoomPanHum)}
                       </div>
                     </div>
               </div>
