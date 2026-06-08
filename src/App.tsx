@@ -33,10 +33,13 @@ const formatDateToDDMMYYYY = (dateStr: string) => {
 // Custom Tooltip
 const CustomTooltip = ({ active, payload, label, unit = '' }: any) => {
   if (active && payload && payload.length) {
+    const dataPoint = payload[0].payload;
+    // Show either the full TimeStamp_IST or combine dateLabel with the time label
+    const dateText = dataPoint.TimeStamp_IST || (dataPoint.dateLabel ? `${dataPoint.dateLabel} ${label}` : label);
     return (
       <div style={{ backgroundColor: 'rgba(10, 10, 10, 0.85)', padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', boxShadow: '0 8px 16px rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-          <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '6px' }}>{label}</div>
+          <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '6px' }}>{dateText}</div>
           <div style={{ fontSize: '13px', fontWeight: 600, color: payload[0].color, marginBottom: '2px', textShadow: `0 0 8px ${payload[0].color}66` }}>
             {payload[0].name}: {payload[0].value} {unit}
           </div>
@@ -53,15 +56,11 @@ export default function App() {
   
   const [devices, setDevices] = useState<CloudSenseDevice[]>([]);
   const [selectedDevice, setSelectedDevice] = useState<CloudSenseDevice | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState('1 day');
-  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
-  const [startDate, setStartDate] = useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 7);
-    return d.toISOString().split('T')[0];
-  });
-  const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState('2024-10-30');
+  const [startDate, setStartDate] = useState('2024-03-01');
+  const [endDate, setEndDate] = useState('2024-10-30');
   const [historyData, setHistoryData] = useState<any[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
@@ -169,64 +168,29 @@ export default function App() {
   useEffect(() => {
     if (activeTab === 'live') {
       setLoading(true);
-      fetch('https://d1b09mxwt0ho4j.cloudfront.net/default/WS_Device_Activity')
-        .then(res => res.json())
-        .then(data => {
-          let filtered: CloudSenseDevice[] = [];
-          if (data && data.devices) {
-            filtered = data.devices.filter((d: any) => 
-              (d.DeviceId && d.DeviceId.startsWith('OMD')) || (d.Topic && d.Topic.toLowerCase().includes('onion'))
-            );
-          }
-          // Local fallback mock
-          if (filtered.length === 0) {
-            filtered = [
-              {
-                DeviceId: 'OMD-001',
-                Topic: 'onion-monitor/OMD-001/telemetry',
-                TimeStamp_IST: new Date().toISOString().replace('T', ' ').substring(0, 19),
-                City: 'Nashik',
-                State: 'Maharashtra',
-                WindSpeed: 0,
-                WindDirection: 0,
-                CurrentTemperature: 12.5,
-                CurrentHumidity: 63.0,
-                BatteryVoltage: 11.8,
-                SignalStrength: -65,
-                H2S: 0.06,
-                CO2: 800,
-                NH3: 0.12,
-                SO2: 0.03,
-                StateCode: 0
-              },
-              {
-                DeviceId: 'OMD-002',
-                Topic: 'onion-monitor/OMD-002/telemetry',
-                TimeStamp_IST: new Date().toISOString().replace('T', ' ').substring(0, 19),
-                City: 'Lasalgaon',
-                State: 'Maharashtra',
-                WindSpeed: 0,
-                WindDirection: 0,
-                CurrentTemperature: 18.2,
-                CurrentHumidity: 68.5,
-                BatteryVoltage: 11.2,
-                SignalStrength: -72,
-                H2S: 0.14,
-                CO2: 1450,
-                NH3: 0.28,
-                SO2: 0.07,
-                StateCode: 1
-              }
-            ];
-          }
+      
+      // Generate static list of devices 1 to 20
+      const staticDevices: CloudSenseDevice[] = Array.from({ length: 20 }, (_, i) => ({
+        DeviceId: `OMD-${String(i + 1).padStart(3, '0')}`,
+        Topic: `onion-monitor/OMD-${String(i + 1).padStart(3, '0')}/telemetry`,
+        TimeStamp_IST: '2024-10-30 23:00:00',
+        City: 'IIT Ropar',
+        State: 'Punjab',
+        WindSpeed: 0,
+        WindDirection: 0,
+        CurrentTemperature: 15,
+        CurrentHumidity: 50,
+        BatteryVoltage: 12.0,
+        SignalStrength: -70,
+        H2S: 0,
+        CO2: 400,
+        NH3: 0,
+        SO2: 0,
+        StateCode: 0
+      }));
 
-          setDevices(filtered);
-          if (filtered.length > 0) {
-            setSelectedDevice(filtered[0]);
-          }
-        })
-        .catch(err => console.error("Error fetching CloudSense data:", err))
-        .finally(() => setLoading(false));
+      setDevices(staticDevices);
+      setLoading(false);
     }
   }, [activeTab]);
 
@@ -242,45 +206,75 @@ export default function App() {
       const todayStr = today.toISOString().split('T')[0];
       
       if (timeRange === '1 day') {
-        start = formatDateToDDMMYYYY(selectedDate);
-        end = formatDateToDDMMYYYY(selectedDate);
+        start = selectedDate;
+        end = selectedDate;
       } else if (timeRange === '7 day') {
         const d = new Date();
         d.setDate(d.getDate() - 7);
-        start = formatDateToDDMMYYYY(d.toISOString().split('T')[0]);
-        end = formatDateToDDMMYYYY(todayStr);
+        start = d.toISOString().split('T')[0];
+        end = todayStr;
       } else if (timeRange === 'Custom') {
-        start = formatDateToDDMMYYYY(startDate);
-        end = formatDateToDDMMYYYY(endDate);
+        start = startDate;
+        end = endDate;
       }
       
       if (!start || !end) return;
       
       setHistoryLoading(true);
       
-      if (selectedDevice.DeviceId.startsWith('OMD')) {
-        setTimeout(() => {
-          if (isMounted) {
-            setHistoryData(generateMockHistory(selectedDevice.DeviceId, start, end));
-            setHistoryLoading(false);
-          }
-        }, 500);
-        return;
-      }
-
       try {
-        const url = `https://gtk47vexob.execute-api.us-east-1.amazonaws.com/ssmet0126data?deviceid=${selectedDevice.DeviceId}&start_date=${start}&end_date=${end}`;
+        // Extract numeric ID if it starts with OMD- (e.g. OMD-001 -> 1)
+        const numericId = selectedDevice.DeviceId.replace(/\D/g, '') || '1';
+        
+        const url = `/api/default/Rotten_oninon_data_fetch?deviceId=${parseInt(numericId, 10)}&startDate=${start}&endDate=${end}`;
+        console.log("Fetching URL:", url);
+        
         const res = await fetch(url);
-        const data = await res.json();
+        console.log("Response Status:", res.status);
+        
+        let responseText = await res.text();
+        console.log("Raw Response (first 300 chars):", responseText.substring(0, 300));
+        
+        let responseData;
+        try {
+          responseData = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error("Error parsing response to JSON:", parseError);
+          return;
+        }
+        
+        // Handle case where Lambda returns a proxy integration response with a stringified body
+        if (responseData.body && typeof responseData.body === 'string') {
+          console.log("Found stringified body, parsing inner JSON...");
+          try {
+            responseData = JSON.parse(responseData.body);
+          } catch (e) {
+            console.error('Failed to parse inner response body:', e);
+          }
+        }
         
         if (isMounted) {
-          if (data && data.length > 0) {
-            const formatted = data.map((d: any) => ({
-              ...d,
-              timeLabel: new Date(d.TimeStamp_IST).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              dateLabel: new Date(d.TimeStamp_IST).toLocaleDateString(),
-            }));
-            formatted.sort((a: any, b: any) => new Date(a.TimeStamp_IST).getTime() - new Date(b.TimeStamp_IST).getTime());
+          const apiData = responseData.data || [];
+          console.log("Final extracted 'data' array length:", apiData.length);
+          if (apiData.length > 0) {
+            const formatted = apiData.map((d: any) => {
+              // Use epoch if available, fallback to parsing timestamp string
+              const dateObj = d.epoch ? new Date(d.epoch * 1000) : new Date(d.timestamp.replace(' ', 'T'));
+              return {
+                ...d,
+                H2S: d.h2s,
+                CO2: d.co2,
+                NH3: d.nh3,
+                SO2: d.so2,
+                CurrentTemperature: d.temperature,
+                CurrentHumidity: d.humidity,
+                TimeStamp_IST: d.timestamp,
+                epochMs: dateObj.getTime(),
+                timeLabel: dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                dateLabel: dateObj.toLocaleDateString(),
+              };
+            });
+            formatted.sort((a: any, b: any) => a.epochMs - b.epochMs);
             setHistoryData(formatted);
           } else {
             setHistoryData([]);
@@ -297,6 +291,8 @@ export default function App() {
     fetchHistory();
     return () => { isMounted = false; };
   }, [activeTab, selectedDevice, timeRange, selectedDate, startDate, endDate]);
+
+  const latestMetrics = historyData.length > 0 ? historyData[historyData.length - 1] : selectedDevice;
 
   const renderChart = (title: string, dataKey: string, color: string, unit: string, zoomPanHook: any, thresholds?: { warning?: number, critical?: number }) => {
     const { displayedData, handleMouseDown, handleMouseMove, handleMouseUp, handleWheel } = zoomPanHook;
@@ -322,7 +318,7 @@ export default function App() {
               No data available for this period.
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height={300} minWidth={10}>
               <LineChart data={displayedData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                 <XAxis 
@@ -337,16 +333,13 @@ export default function App() {
                 <YAxis stroke="var(--text-secondary)" fontSize={12} tickFormatter={(val) => `${val}`} domain={['auto', 'auto']} />
                 <Tooltip content={<CustomTooltip unit={unit} />} cursor={{ stroke: 'rgba(255,255,255,0.2)', strokeWidth: 1, strokeDasharray: '4 4' }} />
                 
-                {thresholds?.warning && <ReferenceLine y={thresholds.warning} stroke="var(--warning)" strokeDasharray="3 3" label={{ position: 'top', value: 'Warning', fill: 'var(--warning)', fontSize: 10 }} />}
-                {thresholds?.critical && <ReferenceLine y={thresholds.critical} stroke="var(--danger)" strokeDasharray="3 3" label={{ position: 'top', value: 'Critical', fill: 'var(--danger)', fontSize: 10 }} />}
-                
                 <Line 
                   type="monotone" 
                   dataKey={dataKey} 
                   stroke={color} 
                   name={title}
-                  strokeWidth={3} 
-                  dot={false} 
+                  strokeWidth={2} 
+                  dot={{ r: 2, strokeWidth: 0, fill: color }} 
                   activeDot={{ r: 6, fill: color, stroke: '#000', strokeWidth: 2 }}
                   animationDuration={300}
                 />
@@ -479,57 +472,93 @@ export default function App() {
         {activeTab === 'live' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', maxWidth: '1600px', margin: '0 auto' }}>
             
-            <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
-              
-              {/* Sidebar Device List - Restyled to match new theme */}
-              <div style={{ flex: '1 1 300px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div className="glass-card">
-                  <h3 style={{ marginBottom: '1.5rem' }}>Deployed Units</h3>
-                  {loading ? (
-                    <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--primary)' }}>Loading...</div>
-                  ) : devices.length === 0 ? (
-                    <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No active OMD devices found.</div>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '600px', overflowY: 'auto', paddingRight: '0.5rem' }}>
-                      {devices.map(device => (
-                        <div 
-                          key={device.DeviceId}
-                          onClick={() => setSelectedDevice(device)}
-                          style={{
-                            padding: '1rem',
-                            borderRadius: '1rem',
-                            cursor: 'pointer',
-                            backgroundColor: selectedDevice?.DeviceId === device.DeviceId ? 'rgba(139, 92, 246, 0.15)' : 'rgba(255,255,255,0.02)',
-                            border: `1px solid ${selectedDevice?.DeviceId === device.DeviceId ? 'var(--primary)' : 'var(--glass-border)'}`,
-                            transition: 'all 0.2s',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center'
-                          }}
-                        >
-                          <div>
-                            <div style={{ fontWeight: 600, fontSize: '1.1rem', color: selectedDevice?.DeviceId === device.DeviceId ? '#fff' : 'var(--text-primary)' }}>
-                              {device.DeviceId}
-                            </div>
-                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-                              {device.City}, {device.State}
-                            </div>
+            {!selectedDevice ? (
+              <div className="glass-card animate-fade-in" style={{ width: '100%' }}>
+                <h3 style={{ marginBottom: '2rem', fontSize: '1.75rem' }}>Deployed Units</h3>
+                {loading ? (
+                  <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--primary)', fontSize: '1.25rem' }}>Loading devices...</div>
+                ) : devices.length === 0 ? (
+                  <div style={{ color: 'var(--text-secondary)', fontSize: '1.1rem', textAlign: 'center', padding: '2rem' }}>No active OMD devices found.</div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' }}>
+                    {devices.map(device => (
+                      <div 
+                        key={device.DeviceId}
+                        onClick={() => setSelectedDevice(device)}
+                        style={{
+                          padding: '1.5rem',
+                          borderRadius: '1rem',
+                          cursor: 'pointer',
+                          backgroundColor: 'rgba(255,255,255,0.03)',
+                          border: `1px solid var(--glass-border)`,
+                          transition: 'all 0.2s',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '1rem',
+                          boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = 'rgba(139, 92, 246, 0.1)';
+                          e.currentTarget.style.transform = 'translateY(-2px)';
+                          e.currentTarget.style.borderColor = 'var(--primary)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.03)';
+                          e.currentTarget.style.transform = 'translateY(0)';
+                          e.currentTarget.style.borderColor = 'var(--glass-border)';
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div style={{ fontWeight: 600, fontSize: '1.25rem', color: '#fff' }}>
+                            {device.DeviceId}
                           </div>
-                          <div style={{ fontSize: '0.75rem', color: getDeviceStatusColor(device.StateCode), display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <div style={{ fontSize: '0.85rem', color: getDeviceStatusColor(device.StateCode), display: 'flex', alignItems: 'center', gap: '0.4rem', backgroundColor: 'rgba(0,0,0,0.3)', padding: '0.25rem 0.75rem', borderRadius: '999px' }}>
                             <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', backgroundColor: getDeviceStatusColor(device.StateCode), boxShadow: `0 0 8px ${getDeviceStatusColor(device.StateCode)}` }}></span>
                             {getDeviceStatusLabel(device.StateCode)}
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                          <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                            {device.City}, {device.State}
+                          </div>
+                          <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.4)' }}>
+                            Last Sync: {device.TimeStamp_IST}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
+            ) : (
+              <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '2rem', width: '100%' }}>
+                {/* Navigation Back Button */}
+                <div>
+                  <button 
+                    onClick={() => setSelectedDevice(null)}
+                    style={{
+                      background: 'rgba(255,255,255,0.05)',
+                      border: '1px solid var(--glass-border)',
+                      color: 'var(--text-secondary)',
+                      padding: '0.5rem 1rem',
+                      borderRadius: '0.5rem',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      fontSize: '0.9rem',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                    Back to Device List
+                  </button>
+                </div>
 
-              <div style={{ flex: '3 1 600px', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                {selectedDevice ? (
-                  <>
-                    {/* Hero Widget for Selected Device */}
+                {/* Hero Widget for Selected Device */}
                     <div className="glass-card" style={{ position: 'relative', overflow: 'hidden' }}>
                       <div style={{ position: 'absolute', top: '-50%', right: '-10%', width: '300px', height: '300px', background: 'radial-gradient(circle, rgba(139,92,246,0.15) 0%, transparent 70%)', borderRadius: '50%' }}></div>
                       
@@ -543,7 +572,7 @@ export default function App() {
                             </span>
                           </h2>
                           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: '0.5rem 0 0 0' }}>
-                            Last Synced: {selectedDevice.TimeStamp_IST} | Battery: <span style={{ color: '#fff' }}>{selectedDevice.BatteryVoltage}V</span>
+                            Last Synced: {latestMetrics?.TimeStamp_IST ?? selectedDevice.TimeStamp_IST}
                           </p>
                         </div>
                       </div>
@@ -553,37 +582,37 @@ export default function App() {
                         <div style={{ padding: '1.25rem', background: 'rgba(0,0,0,0.2)', borderRadius: '1rem', border: '1px solid rgba(255,255,255,0.05)' }}>
                           <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Hydrogen Sulphide</div>
                           <div className="metric-value" style={{ color: '#fbbf24' }}>
-                            {selectedDevice.H2S ?? '--'} <span style={{ fontSize: '1rem', color: 'var(--text-secondary)', textShadow: 'none' }}>ppm</span>
+                            {latestMetrics?.H2S ?? '--'} <span style={{ fontSize: '1rem', color: 'var(--text-secondary)', textShadow: 'none' }}>ppm</span>
                           </div>
                         </div>
                         <div style={{ padding: '1.25rem', background: 'rgba(0,0,0,0.2)', borderRadius: '1rem', border: '1px solid rgba(255,255,255,0.05)' }}>
                           <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Carbon Dioxide</div>
                           <div className="metric-value" style={{ color: '#d4d4d8' }}>
-                            {selectedDevice.CO2 ?? '--'} <span style={{ fontSize: '1rem', color: 'var(--text-secondary)', textShadow: 'none' }}>ppm</span>
+                            {latestMetrics?.CO2 ?? '--'} <span style={{ fontSize: '1rem', color: 'var(--text-secondary)', textShadow: 'none' }}>ppm</span>
                           </div>
                         </div>
                         <div style={{ padding: '1.25rem', background: 'rgba(0,0,0,0.2)', borderRadius: '1rem', border: '1px solid rgba(255,255,255,0.05)' }}>
                           <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Ammonia (NH3)</div>
                           <div className="metric-value" style={{ color: '#10b981' }}>
-                            {selectedDevice.NH3 ?? '--'} <span style={{ fontSize: '1rem', color: 'var(--text-secondary)', textShadow: 'none' }}>ppm</span>
+                            {latestMetrics?.NH3 ?? '--'} <span style={{ fontSize: '1rem', color: 'var(--text-secondary)', textShadow: 'none' }}>ppm</span>
                           </div>
                         </div>
                         <div style={{ padding: '1.25rem', background: 'rgba(0,0,0,0.2)', borderRadius: '1rem', border: '1px solid rgba(255,255,255,0.05)' }}>
                           <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Sulphur Dioxide</div>
                           <div className="metric-value" style={{ color: '#f43f5e' }}>
-                            {selectedDevice.SO2 ?? '--'} <span style={{ fontSize: '1rem', color: 'var(--text-secondary)', textShadow: 'none' }}>ppm</span>
+                            {latestMetrics?.SO2 ?? '--'} <span style={{ fontSize: '1rem', color: 'var(--text-secondary)', textShadow: 'none' }}>ppm</span>
                           </div>
                         </div>
                         <div style={{ padding: '1.25rem', background: 'rgba(0,0,0,0.2)', borderRadius: '1rem', border: '1px solid rgba(255,255,255,0.05)' }}>
                           <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Temperature</div>
                           <div className="metric-value" style={{ color: '#f87171' }}>
-                            {selectedDevice.CurrentTemperature ?? '--'} <span style={{ fontSize: '1rem', color: 'var(--text-secondary)', textShadow: 'none' }}>°C</span>
+                            {latestMetrics?.CurrentTemperature ?? '--'} <span style={{ fontSize: '1rem', color: 'var(--text-secondary)', textShadow: 'none' }}>°C</span>
                           </div>
                         </div>
                         <div style={{ padding: '1.25rem', background: 'rgba(0,0,0,0.2)', borderRadius: '1rem', border: '1px solid rgba(255,255,255,0.05)' }}>
                           <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Rel. Humidity</div>
                           <div className="metric-value" style={{ color: '#60a5fa' }}>
-                            {selectedDevice.CurrentHumidity ?? '--'} <span style={{ fontSize: '1rem', color: 'var(--text-secondary)', textShadow: 'none' }}>%</span>
+                            {latestMetrics?.CurrentHumidity ?? '--'} <span style={{ fontSize: '1rem', color: 'var(--text-secondary)', textShadow: 'none' }}>%</span>
                           </div>
                         </div>
                       </div>
@@ -600,7 +629,7 @@ export default function App() {
                             </button>
                           )}
                           <div style={{ display: 'flex', backgroundColor: 'rgba(0,0,0,0.4)', borderRadius: '999px', padding: '0.25rem', border: '1px solid rgba(255,255,255,0.1)' }}>
-                            {['1 day', '7 day', 'Custom'].map((range) => (
+                            {['1 day', 'Custom'].map((range) => (
                               <button
                                 key={range}
                                 onClick={() => setTimeRange(range)}
@@ -638,7 +667,7 @@ export default function App() {
                       )}
 
                       {/* 6 Independent Zoomable Charts */}
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '1.5rem' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                           {renderChart("Hydrogen Sulphide", "H2S", "#fbbf24", "ppm", zoomPanH2S, { warning: 0.10, critical: 0.20 })}
                           {renderChart("Carbon Dioxide", "CO2", "#d4d4d8", "ppm", zoomPanCO2, { warning: 900, critical: 3500 })}
                           {renderChart("Ammonia", "NH3", "#10b981", "ppm", zoomPanNH3, { warning: 0.20, critical: 0.50 })}
@@ -647,14 +676,8 @@ export default function App() {
                           {renderChart("Humidity", "CurrentHumidity", "#60a5fa", "%", zoomPanHum, { warning: 80, critical: 85 })}
                       </div>
                     </div>
-                  </>
-                ) : (
-                  <div className="glass-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '400px', color: 'var(--text-secondary)', fontSize: '1.1rem' }}>
-                    Select a device from the list on the left to view its real-time and historical telemetry.
-                  </div>
-                )}
               </div>
-            </div>
+            )}
           </div>
         )}
 
