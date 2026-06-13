@@ -382,6 +382,12 @@ export default function App() {
           >
             Hardware Specs
           </div>
+          <div 
+            className={`nav-item ${activeTab === 'deployment' ? 'active' : ''}`}
+            onClick={() => setActiveTab('deployment')}
+          >
+            Deployment
+          </div>
           <a href="mailto:Vikash.hardwareengineer@ihub-awadh.in" className="nav-item">
             Contact Support
           </a>
@@ -414,6 +420,12 @@ export default function App() {
             onClick={() => { setActiveTab('specs'); setMobileMenuOpen(false); }}
           >
             Hardware Specs
+          </div>
+          <div 
+            className={`mobile-nav-item ${activeTab === 'deployment' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('deployment'); setMobileMenuOpen(false); }}
+          >
+            Deployment
           </div>
           <a href="mailto:Vikash.hardwareengineer@ihub-awadh.in" className="mobile-nav-item" style={{ color: 'var(--primary)', marginTop: '0.5rem', fontWeight: 600 }}>
             Contact Support
@@ -701,6 +713,24 @@ export default function App() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+        {/* Deployment Tab */}
+        {activeTab === 'deployment' && (
+          <div className="animate-fade-in" style={{ maxWidth: '1400px', margin: '0 auto' }}>
+            <h2 style={{ marginBottom: '2rem', fontSize: '2.5rem', textAlign: 'center' }}>Deployment Gallery</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' }}>
+              {[...Array(9)].map((_, i) => (
+                <div key={i} className="glass-card" style={{ padding: '1rem', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                  <img 
+                    src={`/assets/images/deployment_${i + 1}.jpeg`} 
+                    alt={`Deployment ${i + 1}`} 
+                    style={{ maxWidth: '100%', height: 'auto', borderRadius: '0.5rem', objectFit: 'cover', aspectRatio: '4/3' }} 
+                  />
+                </div>
+              ))}
             </div>
           </div>
         )}
